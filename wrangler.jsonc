@@ -1,0 +1,37 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "support-desk-pilot",
+  "main": "src/server.ts",
+  "compatibility_date": "2026-05-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  "ai": {
+    "binding": "AI"
+  },
+
+  "worker_loaders": [
+    {
+      "binding": "LOADER"
+    }
+  ],
+
+  "durable_objects": {
+    "bindings": [
+      {
+        "class_name": "SupportDeskAgent",
+        "name": "SupportDeskAgent"
+      }
+    ]
+  },
+
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["SupportDeskAgent"]
+    }
+  ],
+
+  "observability": {
+    "enabled": true
+  }
+}
