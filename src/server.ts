@@ -113,7 +113,28 @@ type CountRow<T extends string = string> = {
   count: number;
 };
 
+type GeocodingResult = {
+  id: number;
+  name: string;
+  latitude: number;
+  longitude: number;
+  country?: string;
+  country_code?: string;
+  admin1?: string;
+  timezone?: string;
+};
+
 const nowIso = () => new Date().toISOString();
+
+function isSqliteContention(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return (
+    message.includes("SQLITE_BUSY") ||
+    message.includes("database is locked") ||
+    message.includes("SQLITE_READONLY") ||
+    message.includes("readonly database")
+  );
+}
 
 const structuredTenantReportSchema = z.object({
   tenantId: z.string(),
@@ -174,6 +195,34 @@ function toTicketView(row: TicketRow): TicketView {
 
 function json(data: unknown, init?: ResponseInit) {
   return Response.json(data, init);
+}
+
+function weatherCodeLabel(code: number) {
+  const labels: Record<number, string> = {
+    0: "快晴",
+    1: "ほぼ晴れ",
+    2: "一部曇り",
+    3: "曇り",
+    45: "霧",
+    48: "霧氷",
+    51: "弱い霧雨",
+    53: "霧雨",
+    55: "強い霧雨",
+    61: "弱い雨",
+    63: "雨",
+    65: "強い雨",
+    71: "弱い雪",
+    73: "雪",
+    75: "強い雪",
+    80: "弱いにわか雨",
+    81: "にわか雨",
+    82: "強いにわか雨",
+    95: "雷雨",
+    96: "ひょうを伴う雷雨",
+    99: "強いひょうを伴う雷雨"
+  };
+
+  return labels[code] ?? `天気コード ${code}`;
 }
 
 const demoTickets = [
@@ -258,10 +307,6 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   async onStart() {
     this.initSchema();
 
-    if (this.state.workspaceId === "unknown") {
-      this.setState({ ...this.state, workspaceId: this.name });
-    }
-
     const [{ count }] = this.sql<{ count: number }>`SELECT COUNT(*) AS count FROM tickets`;
     if (count === 0) {
       await this.seedDemoData({ reset: false });
@@ -269,9 +314,14 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
       this.refreshMetrics();
     }
 
-    await this.scheduleEvery(120, "refreshMetricsFromSchedule", {
-      reason: "keep-client-metrics-fresh"
-    });
+    try {
+      await this.scheduleEvery(120, "refreshMetricsFromSchedule", {
+        reason: "keep-client-metrics-fresh"
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn(`Skipped metric refresh schedule registration in local dev: ${message}`);
+    }
   }
 
   getModel(): LanguageModel {
@@ -289,6 +339,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
 - 複数チケットの集計・条件分岐・ループ処理にはcodemodeを使える
 - codemodeは読み取り専用Toolだけを束ねた安全なコード実行入口として扱う
 - Dynamic Worker analyticsは、チケット配列を分離サンドボックスへ渡して集計する
+- 天気取得は許可済みのgetWeather toolを使う。codemode内で外部fetchを直接書かない
 - 内部メモ追加やステータス変更は、ユーザー承認後だけ実行する
 
 出力ルール:
@@ -350,6 +401,26 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
         execute: async ({ query, limit }) => {
           return this.searchTickets(query, limit);
         }
+      }),
+
+      getWeather: tool({
+        description:
+          "Get current weather for a city through the approved Open-Meteo API. Use this instead of writing network fetch code in codemode.",
+        inputSchema: z.object({
+          city: z.string().min(1).describe("City name such as Osaka, Tokyo, or 大阪"),
+          countryCode: z
+            .string()
+            .length(2)
+            .optional()
+            .describe("Optional ISO 3166-1 alpha-2 country code such as JP"),
+          timezone: z
+            .string()
+            .default("Asia/Tokyo")
+            .describe("IANA timezone for returned timestamps")
+        }),
+        execute: async ({ city, countryCode, timezone }) => {
+          return this.getWeather({ city, countryCode, timezone });
+        }
       })
     };
   }
@@ -368,7 +439,8 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
 Run JavaScript code in an isolated Dynamic Worker sandbox to orchestrate read-only support desk tools.
 
 Use this when you need loops, branching, sorting, grouping, joining, or multi-step analysis across many tickets.
-The sandbox has no outbound network access. It can only call the read-only codemode.* API below.
+The sandbox has no outbound network access. For weather, call codemode.getWeather instead of fetch().
+It can only call the read-only codemode.* API below.
 Do not use this for mutations such as adding notes, changing ticket status, sending messages, or seeding data.
 
 {{types}}
@@ -492,6 +564,7 @@ Do not use this for mutations such as adding notes, changing ticket status, send
           "listTickets",
           "getTicket",
           "searchTickets",
+          "getWeather",
           "codemode",
           "runDynamicWorkerTicketAnalytics",
           "read",
@@ -527,7 +600,11 @@ Do not use this for mutations such as adding notes, changing ticket status, send
   }
 
   afterToolCall(ctx: any) {
-    console.log("tool call finished", ctx);
+    console.log("tool call finished", {
+      toolName: ctx.toolName,
+      success: ctx.success,
+      durationMs: ctx.durationMs
+    });
   }
 
   onChatError(error: unknown) {
@@ -670,14 +747,25 @@ Do not use this for mutations such as adding notes, changing ticket status, send
       WHERE priority = 'urgent' AND status != 'resolved'
     `;
 
-    this.setState({
-      ...this.state,
-      seeded: true,
-      openTicketCount: open?.count ?? 0,
-      urgentTicketCount: urgent?.count ?? 0,
-      lastActivityAt: nowIso(),
-      lastError: null
-    });
+    try {
+      this.setState({
+        ...this.state,
+        workspaceId: this.name,
+        seeded: true,
+        openTicketCount: open?.count ?? 0,
+        urgentTicketCount: urgent?.count ?? 0,
+        lastActivityAt: nowIso(),
+        lastError: null
+      });
+    } catch (error) {
+      if (isSqliteContention(error)) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`Skipped metric state refresh because local SQLite storage is busy: ${message}`);
+        return;
+      }
+
+      throw error;
+    }
   }
 
   @callable()
@@ -873,6 +961,120 @@ Do not use this for mutations such as adding notes, changing ticket status, send
     `;
 
     return rows.map(toTicketView);
+  }
+
+  async getWeather(input: {
+    city: string;
+    countryCode?: string;
+    timezone?: string;
+  }) {
+    const city = input.city.trim();
+    const timezone = input.timezone || "Asia/Tokyo";
+    const countryCode = input.countryCode?.toUpperCase();
+
+    const geocodeUrl = new URL("https://geocoding-api.open-meteo.com/v1/search");
+    geocodeUrl.searchParams.set("name", city);
+    geocodeUrl.searchParams.set("count", "5");
+    geocodeUrl.searchParams.set("language", "ja");
+    geocodeUrl.searchParams.set("format", "json");
+
+    const geocodeResponse = await fetch(geocodeUrl);
+    if (!geocodeResponse.ok) {
+      return {
+        ok: false,
+        source: "open-meteo",
+        error: `Geocoding failed with status ${geocodeResponse.status}`
+      };
+    }
+
+    const geocodeData = (await geocodeResponse.json()) as {
+      results?: GeocodingResult[];
+    };
+    const location = geocodeData.results?.find((result) =>
+      countryCode ? result.country_code === countryCode : true
+    );
+
+    if (!location) {
+      return {
+        ok: false,
+        source: "open-meteo",
+        error: `Location not found: ${city}`,
+        city,
+        countryCode: countryCode ?? null
+      };
+    }
+
+    const forecastUrl = new URL("https://api.open-meteo.com/v1/forecast");
+    forecastUrl.searchParams.set("latitude", String(location.latitude));
+    forecastUrl.searchParams.set("longitude", String(location.longitude));
+    forecastUrl.searchParams.set(
+      "current",
+      [
+        "temperature_2m",
+        "relative_humidity_2m",
+        "apparent_temperature",
+        "precipitation",
+        "weather_code",
+        "wind_speed_10m"
+      ].join(",")
+    );
+    forecastUrl.searchParams.set("timezone", timezone);
+
+    const forecastResponse = await fetch(forecastUrl);
+    if (!forecastResponse.ok) {
+      return {
+        ok: false,
+        source: "open-meteo",
+        error: `Forecast failed with status ${forecastResponse.status}`
+      };
+    }
+
+    const forecastData = (await forecastResponse.json()) as {
+      current?: {
+        time: string;
+        temperature_2m: number;
+        relative_humidity_2m: number;
+        apparent_temperature: number;
+        precipitation: number;
+        weather_code: number;
+        wind_speed_10m: number;
+      };
+      current_units?: Record<string, string>;
+    };
+    const current = forecastData.current;
+
+    if (!current) {
+      return {
+        ok: false,
+        source: "open-meteo",
+        error: "Forecast response did not include current weather."
+      };
+    }
+
+    return {
+      ok: true,
+      source: "open-meteo",
+      location: {
+        name: location.name,
+        country: location.country ?? null,
+        countryCode: location.country_code ?? null,
+        admin1: location.admin1 ?? null,
+        latitude: location.latitude,
+        longitude: location.longitude,
+        timezone: location.timezone ?? timezone
+      },
+      current: {
+        time: current.time,
+        condition: weatherCodeLabel(current.weather_code),
+        weatherCode: current.weather_code,
+        temperature: current.temperature_2m,
+        apparentTemperature: current.apparent_temperature,
+        humidity: current.relative_humidity_2m,
+        precipitation: current.precipitation,
+        windSpeed: current.wind_speed_10m,
+        units: forecastData.current_units ?? {}
+      }
+    };
   }
 
   @callable()
