@@ -118,6 +118,7 @@ function toolNameLabel(toolName: string) {
     changeTicketStatus: "ステータス変更",
     codemode: "コード実行",
     draftReplyWithSubAgent: "返信案作成",
+    getWeather: "天気取得",
     getTicket: "チケット詳細取得",
     listTickets: "チケット一覧取得",
     runDynamicWorkerTicketAnalytics: "チケット分析",
@@ -510,6 +511,24 @@ function TenantWorkspace({ workspace, switchTenant }: TenantWorkspaceProps) {
               }}
             >
               構造化レポート
+            </button>
+            <button
+              onClick={() =>
+                sendMessage({
+                  text: "getWeather toolを使って大阪の現在の天気を取得して、日本語で短く要約して"
+                })
+              }
+            >
+              大阪の天気
+            </button>
+            <button
+              onClick={() =>
+                sendMessage({
+                  text: "codemodeを使って、大阪と東京の現在の天気をgetWeatherで取得し、気温と降水量を比較して"
+                })
+              }
+            >
+              天気をコードで比較
             </button>
             <button
               onClick={() =>
