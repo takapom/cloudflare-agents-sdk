@@ -8,28 +8,15 @@ import {
   getToolCallId,
   getToolPartState
 } from "@cloudflare/ai-chat/react";
+import type { SupportDeskAgent } from "@/server";
 import type {
-  SupportDeskAgent,
   SupportDeskState,
   TenantOverview,
   TicketPriority,
-  TicketStatus
-} from "./server";
-import "./styles.css";
-
-type TicketView = {
-  id: string;
-  customerName: string;
-  customerEmail: string;
-  subject: string;
-  body: string;
-  status: TicketStatus;
-  priority: TicketPriority;
-  category: string;
-  tags: string[];
-  createdAt: string;
-  updatedAt: string;
-};
+  TicketStatus,
+  TicketView
+} from "@/shared/contracts";
+import "@/styles.css";
 
 const tenantPresets = ["acme-demo", "globex-demo", "umbrella-demo"];
 
