@@ -1,6 +1,6 @@
 import { routeAgentRequest } from "agents";
-import { SupportDeskAgent } from "@/server/agents/supportDeskAgent";
-import { ReplyDraftAgent } from "@/server/agents/replyDraftAgent";
+import { ReplyDraftAgent } from "@/server/agents/replyDraft/replyDraftAgent";
+import { SupportDeskAgent } from "@/server/agents/workspace/workspaceAgent";
 import type { Env } from "@/server/env";
 
 function json(data: unknown, init?: ResponseInit) {

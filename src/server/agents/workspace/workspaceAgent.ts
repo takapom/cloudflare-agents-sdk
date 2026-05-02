@@ -26,23 +26,23 @@ import type { Env } from "@/server/env";
 import { getCurrentWeather } from "@/server/integrations/openMeteo/client";
 import { isSqliteContention } from "@/server/utils/errors";
 import { nowIso } from "@/server/utils/time";
-import { structuredTenantReportSchema } from "@/server/contexts/supportDesk/ai/schemas";
+import { structuredTenantReportSchema } from "@/server/contexts/supportDesk/ai/ticket/ticketSchemas";
 import {
   replyDraftUserPrompt,
   supportDeskSystemPrompt
-} from "@/server/contexts/supportDesk/ai/prompts";
-import { readonlyToolNames, isMutatingTool } from "@/server/contexts/supportDesk/ai/toolPolicy";
-import { createSupportDeskTools } from "@/server/contexts/supportDesk/ai/tools";
+} from "@/server/contexts/supportDesk/ai/shared/prompts";
+import { readonlyToolNames, isMutatingTool } from "@/server/contexts/supportDesk/ai/shared/toolPolicy";
+import { createSupportDeskTools } from "@/server/contexts/supportDesk/ai/ticket/ticketTools";
 import {
   createSupportDeskStore,
   type SqlQuery
-} from "@/server/contexts/supportDesk/infrastructure/sqliteSupportDeskStore";
-import { createSupportDeskApplication } from "@/server/contexts/supportDesk/application/supportDeskApplication";
-import { createSemanticSearchService } from "@/server/contexts/supportDesk/application/semanticSearchService";
-import { createSqliteSearchProjectionStore } from "@/server/contexts/supportDesk/infrastructure/sqliteSearchProjectionStore";
-import { createVectorizeTicketSearchIndex } from "@/server/contexts/supportDesk/infrastructure/vectorizeTicketSearchIndex";
-import { createWorkersAiEmbeddingProvider } from "@/server/contexts/supportDesk/infrastructure/workersAiEmbeddingProvider";
-import { ReplyDraftAgent } from "@/server/agents/replyDraftAgent";
+} from "@/server/contexts/supportDesk/infrastructure/ticket/sqliteTicketStore";
+import { createTicketApplication } from "@/server/contexts/supportDesk/application/ticket/ticketApplication";
+import { createSemanticSearchService } from "@/server/contexts/supportDesk/application/search/semanticSearchService";
+import { createSqliteSearchProjectionStore } from "@/server/contexts/supportDesk/infrastructure/search/sqliteSearchProjectionStore";
+import { createVectorizeTicketSearchIndex } from "@/server/contexts/supportDesk/infrastructure/search/vectorizeTicketSearchIndex";
+import { createWorkersAiEmbeddingProvider } from "@/server/contexts/supportDesk/infrastructure/search/workersAiEmbeddingProvider";
+import { ReplyDraftAgent } from "@/server/agents/replyDraft/replyDraftAgent";
 
 export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   initialState: SupportDeskState = {
@@ -68,7 +68,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   }
 
   private getApplication() {
-    return createSupportDeskApplication(
+    return createTicketApplication(
       createSupportDeskStore(this.getSqlQuery(), this.name)
     );
   }

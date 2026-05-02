@@ -9,11 +9,11 @@ import type {
   TicketStatusFilter
 } from "@/shared/contracts";
 import type { Env } from "@/server/env";
-import { ticketStatusSchema } from "@/server/contexts/supportDesk/ai/schemas";
+import { ticketStatusSchema } from "@/server/contexts/supportDesk/ai/ticket/ticketSchemas";
 import {
   createSemanticSearchTools,
   type SemanticSearchToolHandlers
-} from "@/server/contexts/supportDesk/ai/semanticSearchTools";
+} from "@/server/contexts/supportDesk/ai/search/semanticSearchTools";
 
 type SupportDeskToolHandlers = {
   listTickets: (
