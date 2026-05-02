@@ -38,6 +38,10 @@ import {
   type SqlQuery
 } from "@/server/contexts/supportDesk/infrastructure/sqliteSupportDeskStore";
 import { createSupportDeskApplication } from "@/server/contexts/supportDesk/application/supportDeskApplication";
+import { createSemanticSearchService } from "@/server/contexts/supportDesk/application/semanticSearchService";
+import { createSqliteSearchProjectionStore } from "@/server/contexts/supportDesk/infrastructure/sqliteSearchProjectionStore";
+import { createVectorizeTicketSearchIndex } from "@/server/contexts/supportDesk/infrastructure/vectorizeTicketSearchIndex";
+import { createWorkersAiEmbeddingProvider } from "@/server/contexts/supportDesk/infrastructure/workersAiEmbeddingProvider";
 import { ReplyDraftAgent } from "@/server/agents/replyDraftAgent";
 
 export class SupportDeskAgent extends Think<Env, SupportDeskState> {
@@ -56,13 +60,27 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   override messageConcurrency: MessageConcurrency = "queue";
   override chatRecovery = true;
 
-  private getApplication() {
-    const sql: SqlQuery = <T = Record<string, unknown>>(
+  private getSqlQuery(): SqlQuery {
+    return <T = Record<string, unknown>>(
       strings: TemplateStringsArray,
       ...values: any[]
     ) => this.sql<T>(strings, ...values);
+  }
 
-    return createSupportDeskApplication(createSupportDeskStore(sql, this.name));
+  private getApplication() {
+    return createSupportDeskApplication(
+      createSupportDeskStore(this.getSqlQuery(), this.name)
+    );
+  }
+
+  private getSemanticSearchService() {
+    return createSemanticSearchService({
+      workspaceId: this.name,
+      ticketRepository: this.getApplication(),
+      projectionStore: createSqliteSearchProjectionStore(this.getSqlQuery()),
+      embeddingProvider: createWorkersAiEmbeddingProvider(this.env),
+      searchIndex: createVectorizeTicketSearchIndex(this.env)
+    });
   }
 
   async onStart() {
@@ -122,7 +140,9 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
         this.addInternalNote(ticketId, body, createdBy),
       changeTicketStatus: (ticketId, status, reason) =>
         this.changeTicketStatus(ticketId, status, reason),
-      seedDemoData: () => this.seedDemoData({ reset: true })
+      seedDemoData: () => this.seedDemoData({ reset: true }),
+      semanticSearchTickets: (input) => this.semanticSearchTickets(input),
+      reindexSearch: (input) => this.reindexSearch(input)
     });
   }
 
@@ -291,6 +311,25 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
       env: this.env,
       tickets
     });
+  }
+
+  @callable()
+  async semanticSearchTickets(input: {
+    query: string;
+    status?: TicketStatusFilter;
+    priority?: TicketPriorityFilter;
+    limit?: number;
+  }) {
+    return this.getSemanticSearchService().searchSimilarTickets(input);
+  }
+
+  @callable()
+  async reindexSearch(input?: {
+    status?: TicketStatusFilter;
+    priority?: TicketPriorityFilter;
+    limit?: number;
+  }) {
+    return this.getSemanticSearchService().reindexTickets(input);
   }
 
   @callable()
