@@ -9,6 +9,13 @@
     "binding": "AI"
   },
 
+  "vectorize": [
+    {
+      "binding": "SUPPORT_DESK_VECTORIZE",
+      "index_name": "support-desk-tickets"
+    }
+  ],
+
   "worker_loaders": [
     {
       "binding": "LOADER"
