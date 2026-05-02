@@ -7,9 +7,9 @@ import type {
   TicketStatusFilter
 } from "@/shared/contracts";
 import { nowIso } from "@/server/utils/time";
-import { demoTickets } from "@/server/contexts/supportDesk/domain/demoTickets";
-import { toTicketView } from "@/server/contexts/supportDesk/domain/mappers";
-import type { AuditLogRow, CountRow, DraftRow, NoteRow, TicketRow } from "@/server/contexts/supportDesk/domain/rows";
+import { demoTickets } from "@/server/contexts/supportDesk/domain/ticket/demoTickets";
+import { toTicketView } from "@/server/contexts/supportDesk/domain/ticket/mappers";
+import type { AuditLogRow, CountRow, DraftRow, NoteRow, TicketRow } from "@/server/contexts/supportDesk/domain/ticket/rows";
 
 export type SqlQuery = <T = Record<string, unknown>>(
   strings: TemplateStringsArray,

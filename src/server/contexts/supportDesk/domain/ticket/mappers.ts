@@ -1,5 +1,5 @@
 import type { TicketView } from "@/shared/contracts";
-import type { TicketRow } from "@/server/contexts/supportDesk/domain/rows";
+import type { TicketRow } from "@/server/contexts/supportDesk/domain/ticket/rows";
 
 export function toTicketView(row: TicketRow): TicketView {
   return {

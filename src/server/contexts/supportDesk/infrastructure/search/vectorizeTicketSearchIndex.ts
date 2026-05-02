@@ -5,7 +5,7 @@ import type {
 import type {
   TicketSearchIndex,
   TicketSearchMatch
-} from "@/server/contexts/supportDesk/application/semanticSearchService";
+} from "@/server/contexts/supportDesk/application/search/semanticSearchService";
 import type { Env } from "@/server/env";
 
 function normalizeMetadata(metadata: unknown) {

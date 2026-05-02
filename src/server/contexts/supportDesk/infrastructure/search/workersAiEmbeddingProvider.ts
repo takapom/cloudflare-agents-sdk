@@ -1,8 +1,8 @@
-import type { EmbeddingProvider } from "@/server/contexts/supportDesk/application/semanticSearchService";
+import type { EmbeddingProvider } from "@/server/contexts/supportDesk/application/search/semanticSearchService";
 import {
   SUPPORT_DESK_EMBEDDING_DIMENSIONS,
   SUPPORT_DESK_EMBEDDING_MODEL
-} from "@/server/contexts/supportDesk/domain/searchDocument";
+} from "@/server/contexts/supportDesk/domain/search/searchDocument";
 import type { Env } from "@/server/env";
 
 type WorkersAiEmbeddingOutput = {
