@@ -10,6 +10,10 @@ import type {
 } from "@/shared/contracts";
 import type { Env } from "@/server/env";
 import { ticketStatusSchema } from "@/server/contexts/supportDesk/ai/schemas";
+import {
+  createSemanticSearchTools,
+  type SemanticSearchToolHandlers
+} from "@/server/contexts/supportDesk/ai/semanticSearchTools";
 
 type SupportDeskToolHandlers = {
   listTickets: (
@@ -41,7 +45,7 @@ type SupportDeskToolHandlers = {
     reason: string
   ) => Promise<unknown>;
   seedDemoData: () => Promise<unknown>;
-};
+} & SemanticSearchToolHandlers;
 
 export function createReadOnlyTicketTools(handlers: SupportDeskToolHandlers): ToolSet {
   return {
@@ -130,6 +134,7 @@ export function createSupportDeskTools(env: Env, handlers: SupportDeskToolHandle
 
   return {
     ...readOnlyTools,
+    ...createSemanticSearchTools(handlers),
 
     codemode: createCodemodeTool(env, readOnlyTools),
 

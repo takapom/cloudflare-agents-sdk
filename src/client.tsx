@@ -110,6 +110,8 @@ function toolNameLabel(toolName: string) {
     listTickets: "チケット一覧取得",
     runDynamicWorkerTicketAnalytics: "チケット分析",
     searchTickets: "チケット検索",
+    semanticSearchTickets: "意味検索",
+    reindexSearch: "検索インデックス再構築",
     seedDemoData: "デモデータ初期化"
   };
 

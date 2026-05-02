@@ -2,6 +2,7 @@ export const readonlyToolNames = [
   "listTickets",
   "getTicket",
   "searchTickets",
+  "semanticSearchTickets",
   "getWeather",
   "codemode",
   "runDynamicWorkerTicketAnalytics",
@@ -16,6 +17,7 @@ const mutatingToolNames = new Set([
   "addInternalNote",
   "changeTicketStatus",
   "seedDemoData",
+  "reindexSearch",
   "write",
   "edit",
   "delete"
