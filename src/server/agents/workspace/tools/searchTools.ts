@@ -6,7 +6,7 @@ import type {
 import {
   reindexSearchInputSchema,
   semanticSearchTicketsInputSchema
-} from "@/server/contexts/supportDesk/ai/search/semanticSearchSchemas";
+} from "@/server/agents/workspace/tools/searchSchemas";
 
 export type SemanticSearchToolHandlers = {
   semanticSearchTickets: (input: {

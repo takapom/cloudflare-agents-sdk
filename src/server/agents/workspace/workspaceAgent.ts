@@ -26,13 +26,10 @@ import type { Env } from "@/server/env";
 import { getCurrentWeather } from "@/server/integrations/openMeteo/client";
 import { isSqliteContention } from "@/server/utils/errors";
 import { nowIso } from "@/server/utils/time";
-import { structuredTenantReportSchema } from "@/server/contexts/supportDesk/ai/ticket/ticketSchemas";
-import {
-  replyDraftUserPrompt,
-  supportDeskSystemPrompt
-} from "@/server/contexts/supportDesk/ai/shared/prompts";
-import { readonlyToolNames, isMutatingTool } from "@/server/contexts/supportDesk/ai/shared/toolPolicy";
-import { createSupportDeskTools } from "@/server/contexts/supportDesk/ai/ticket/ticketTools";
+import { structuredTenantReportSchema } from "@/server/agents/workspace/tools/ticketSchemas";
+import { supportDeskSystemPrompt } from "@/server/agents/workspace/prompts";
+import { readonlyToolNames, isMutatingTool } from "@/server/agents/workspace/toolPolicy";
+import { createSupportDeskTools } from "@/server/agents/workspace/tools/ticketTools";
 import {
   createSupportDeskStore,
   type SqlQuery
@@ -42,6 +39,7 @@ import { createSemanticSearchService } from "@/server/contexts/supportDesk/appli
 import { createSqliteSearchProjectionStore } from "@/server/contexts/supportDesk/infrastructure/search/sqliteSearchProjectionStore";
 import { createVectorizeTicketSearchIndex } from "@/server/contexts/supportDesk/infrastructure/search/vectorizeTicketSearchIndex";
 import { createWorkersAiEmbeddingProvider } from "@/server/contexts/supportDesk/infrastructure/search/workersAiEmbeddingProvider";
+import { replyDraftUserPrompt } from "@/server/agents/replyDraft/prompts";
 import { ReplyDraftAgent } from "@/server/agents/replyDraft/replyDraftAgent";
 
 export class SupportDeskAgent extends Think<Env, SupportDeskState> {

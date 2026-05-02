@@ -13,14 +13,27 @@ src/
     contracts.ts
   server/
     agents/
+      workspace/
+        workspaceAgent.ts
+        tools/
+        prompts.ts
+        toolPolicy.ts
+      replyDraft/
+        replyDraftAgent.ts
+        prompts.ts
     ai/
     analytics/
     contexts/
       supportDesk/
-        ai/
         application/
+          ticket/
+          search/
         domain/
+          ticket/
+          search/
         infrastructure/
+          ticket/
+          search/
     integrations/
     utils/
 ```
@@ -133,6 +146,12 @@ Cloudflare Agents SDK との接続点です。
 
 - Cloudflare Agents SDK を外したときに不要になる処理は `agents/`
 - SDK を外しても残る業務処理は `contexts/*/application` か `domain`
+- capability ごとに `workspace/`、`replyDraft/`、将来的には `search/`、`ticket/`、`analytics/` のように切る
+
+現状:
+
+- `agents/workspace/workspaceAgent.ts`: UI chat の入口。互換性のため exported class 名は `SupportDeskAgent` のまま。
+- `agents/replyDraft/replyDraftAgent.ts`: 返信案作成 sub-agent。
 
 ## `src/server/contexts/supportDesk/domain/*`
 
@@ -151,6 +170,7 @@ Support Desk bounded context の domain 表現です。
 - domain constant
 - demo ticket data
 - domain vocabulary
+- capability ごとの domain 表現
 
 置かないもの:
 
@@ -162,7 +182,9 @@ Support Desk bounded context の domain 表現です。
 
 注意:
 
-- 現状の `demoTickets` はデモ用途なのでここに置いている。production seed や fixture が増える場合は、`fixtures/` や `seed/` に切る選択肢もある。
+- `domain/ticket/`: ticket row、mapper、demo data。
+- `domain/search/`: semantic search document、metadata、embedding model 定数。
+- 現状の `demoTickets` はデモ用途なので `domain/ticket/` に置いている。production seed や fixture が増える場合は、`fixtures/` や `seed/` に切る選択肢もある。
 
 ## `src/server/contexts/supportDesk/application/*`
 
@@ -180,6 +202,7 @@ Support Desk bounded context の application service です。
 - repository / store の呼び出し
 - 複数 repository をまたぐ処理
 - 監査ログや状態更新を伴う業務操作の流れ
+- capability ごとの application service
 
 置かないもの:
 
@@ -194,6 +217,11 @@ Support Desk bounded context の application service です。
 - 「ユーザーが何をしたいか」を表す処理は application
 - 「どう保存するか」は infrastructure
 - 「Agent がいつ呼ぶか」は agents
+
+現状:
+
+- `application/ticket/ticketApplication.ts`: ticket / note / draft / tenant overview のユースケース。
+- `application/search/semanticSearchService.ts`: semantic search / reindex / search index deletion のユースケース。
 
 ## `src/server/contexts/supportDesk/infrastructure/*`
 
@@ -214,6 +242,7 @@ Support Desk bounded context の永続化・技術詳細です。
 - SQLite の実装詳細
 - persistence 向けの helper
 - repository / store implementation
+- Cloudflare binding の具体呼び出し
 
 置かないもの:
 
@@ -225,41 +254,8 @@ Support Desk bounded context の永続化・技術詳細です。
 
 注意:
 
-- `sqliteSupportDeskStore.ts` は現時点では store と repository の役割をまとめている。規模が大きくなったら `ticketRepository.ts`、`draftRepository.ts`、`auditLogRepository.ts` に分割する。
-
-## `src/server/contexts/supportDesk/ai/*`
-
-Support Desk bounded context の AI 境界です。
-
-責務:
-
-- AI tool の定義を管理する
-- tool input の zod schema を定義する
-- structured output schema を定義する
-- system prompt / user prompt を管理する
-- readonly tool / mutating tool などの tool policy を管理する
-
-置いてよいもの:
-
-- `tool(...)`
-- zod schema
-- prompt template
-- tool description
-- tool allow/block policy
-
-置かないもの:
-
-- SQL
-- SQLite schema
-- 外部 API の fetch 実装
-- React 表示 label
-- Agent state の更新処理
-
-判断基準:
-
-- LLM の入出力や tool selection に関係するものは `ai/`
-- 業務操作そのものは `application`
-- 保存方法は `infrastructure`
+- `infrastructure/ticket/sqliteTicketStore.ts` は現時点では ticket / note / draft / audit log の store と repository の役割をまとめている。規模が大きくなったら `ticketRepository.ts`、`draftRepository.ts`、`auditLogRepository.ts` に分割する。
+- `infrastructure/search/`: Workers AI embedding、Vectorize、search projection の具体実装。
 
 ## `src/server/ai/*`
 
@@ -369,19 +365,20 @@ server 内で共有する小さな汎用 helper です。
 | --- | --- |
 | Worker の HTTP entrypoint を変える | `src/server.ts` |
 | UI と server の共有型を変える | `src/shared/contracts.ts` |
-| Agent lifecycle / callable / tool orchestration を変える | `src/server/agents/*` |
-| チケット業務のユースケースを変える | `contexts/supportDesk/application/*` |
-| SQLite の schema / query を変える | `contexts/supportDesk/infrastructure/*` |
-| DB row や mapper を変える | `contexts/supportDesk/domain/*` |
-| AI tool の input schema を変える | `contexts/supportDesk/ai/schemas.ts` |
-| AI tool の登録や description を変える | `contexts/supportDesk/ai/tools.ts` |
-| semantic search tool を変える | `contexts/supportDesk/ai/semanticSearchTools.ts` |
-| semantic search の zod schema を変える | `contexts/supportDesk/ai/semanticSearchSchemas.ts` |
-| embedding の具体実装を変える | `contexts/supportDesk/infrastructure/workersAiEmbeddingProvider.ts` |
-| Vectorize の保存・検索実装を変える | `contexts/supportDesk/infrastructure/vectorizeTicketSearchIndex.ts` |
-| search index の同期状態を変える | `contexts/supportDesk/infrastructure/sqliteSearchProjectionStore.ts` |
-| prompt を変える | `contexts/supportDesk/ai/prompts.ts` |
-| readonly / mutating tool policy を変える | `contexts/supportDesk/ai/toolPolicy.ts` |
+| Workspace Agent lifecycle / callable / tool orchestration を変える | `src/server/agents/workspace/workspaceAgent.ts` |
+| Workspace Agent の tool を変える | `src/server/agents/workspace/tools/*` |
+| Workspace Agent の prompt を変える | `src/server/agents/workspace/prompts.ts` |
+| Workspace Agent の readonly / mutating policy を変える | `src/server/agents/workspace/toolPolicy.ts` |
+| 返信案 sub-agent を変える | `src/server/agents/replyDraft/replyDraftAgent.ts` |
+| 返信案 sub-agent の prompt を変える | `src/server/agents/replyDraft/prompts.ts` |
+| チケット業務のユースケースを変える | `contexts/supportDesk/application/ticket/ticketApplication.ts` |
+| ticket SQLite の schema / query を変える | `contexts/supportDesk/infrastructure/ticket/sqliteTicketStore.ts` |
+| ticket DB row や mapper を変える | `contexts/supportDesk/domain/ticket/*` |
+| semantic search application を変える | `contexts/supportDesk/application/search/semanticSearchService.ts` |
+| semantic search domain を変える | `contexts/supportDesk/domain/search/searchDocument.ts` |
+| embedding の具体実装を変える | `contexts/supportDesk/infrastructure/search/workersAiEmbeddingProvider.ts` |
+| Vectorize の保存・検索実装を変える | `contexts/supportDesk/infrastructure/search/vectorizeTicketSearchIndex.ts` |
+| search index の同期状態を変える | `contexts/supportDesk/infrastructure/search/sqliteSearchProjectionStore.ts` |
 | Workers AI model を変える | `src/server/ai/model.ts` |
 | Open-Meteo 連携を変える | `src/server/integrations/openMeteo/*` |
 | Dynamic Worker 分析を変える | `src/server/analytics/*` |
@@ -396,7 +393,6 @@ server.ts
     -> application
       -> infrastructure
       -> domain
-    -> ai
     -> integrations
     -> analytics
 shared/contracts
@@ -411,7 +407,7 @@ shared/contracts
 
 ## 今後の分割目安
 
-現時点では `SupportDeskAgent` ひとつを中心に、内部を bounded context で分けている。
+現時点では `agents/workspace/workspaceAgent.ts` の `SupportDeskAgent` ひとつを UI chat の入口にし、内部の bounded context は capability 別に分けている。
 
 次の兆候が出たら Agent 分割を検討する。
 
@@ -423,11 +419,11 @@ shared/contracts
 候補:
 
 ```txt
-SupportDeskAgent
-ReplyDraftAgent
-TenantOpsAgent
-AnalyticsAgent
+WorkspaceAgent
 TicketAgent
+SearchAgent
+ReplyDraftAgent
+AnalyticsAgent
 ```
 
 ただし、最初から Agent を増やしすぎると一覧取得や横断集計が複雑になる。まずは今のように「1 main Agent + bounded context 内部分割」を基本形にする。
@@ -438,16 +434,17 @@ semantic search は、チケット本文を embedding に変換して Vectorize 
 
 責務の分担:
 
-- `application/semanticSearchService.ts`: index / search / reindex のユースケースを組み立てる
-- `domain/searchDocument.ts`: チケットを検索対象 document と metadata に変換する
-- `infrastructure/workersAiEmbeddingProvider.ts`: Workers AI の `env.AI.run(...)` で embedding を作る
-- `infrastructure/vectorizeTicketSearchIndex.ts`: Vectorize の `upsert` / `query` / `deleteByIds` を実行する
-- `infrastructure/sqliteSearchProjectionStore.ts`: どの source がどの vectorId / contentHash で index 済みかを SQLite に保存する
-- `ai/semanticSearchTools.ts`: Agent tool として `semanticSearchTickets` / `reindexSearch` を公開する
+- `application/search/semanticSearchService.ts`: index / search / reindex のユースケースを組み立てる
+- `domain/search/searchDocument.ts`: チケットを検索対象 document と metadata に変換する
+- `infrastructure/search/workersAiEmbeddingProvider.ts`: Workers AI の `env.AI.run(...)` で embedding を作る
+- `infrastructure/search/vectorizeTicketSearchIndex.ts`: Vectorize の `upsert` / `query` / `deleteByIds` を実行する
+- `infrastructure/search/sqliteSearchProjectionStore.ts`: どの source がどの vectorId / contentHash で index 済みかを SQLite に保存する
+- `agents/workspace/tools/searchTools.ts`: Agent tool として `semanticSearchTickets` / `reindexSearch` を公開する
 
 重要な境界:
 
 - Application 層は `env.AI.run(...)` や `env.SUPPORT_DESK_VECTORIZE.query(...)` を直接呼ばない
+- Context 層は Agent tool / prompt / policy を持たない
 - 具体的な Cloudflare binding 操作は infrastructure に閉じ込める
 - Vectorize は source of truth ではなく検索 index として扱う
 - チケット本体は Durable Object SQLite に残し、検索結果は `ticketId` で hydrate する
