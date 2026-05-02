@@ -4,9 +4,9 @@ import type {
   TicketStatus,
   TicketStatusFilter
 } from "@/shared/contracts";
-import type { SupportDeskStore } from "@/server/contexts/supportDesk/infrastructure/sqliteSupportDeskStore";
+import type { SupportDeskStore } from "@/server/contexts/supportDesk/infrastructure/ticket/sqliteTicketStore";
 
-export function createSupportDeskApplication(store: SupportDeskStore) {
+export function createTicketApplication(store: SupportDeskStore) {
   return {
     initSchema() {
       store.initSchema();

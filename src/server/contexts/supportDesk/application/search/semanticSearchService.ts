@@ -6,7 +6,7 @@ import type {
 import {
   buildTicketSearchDocument,
   SUPPORT_DESK_EMBEDDING_MODEL
-} from "@/server/contexts/supportDesk/domain/searchDocument";
+} from "@/server/contexts/supportDesk/domain/search/searchDocument";
 
 export type EmbeddingResult = {
   values: number[];
