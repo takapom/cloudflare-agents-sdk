@@ -375,6 +375,11 @@ server 内で共有する小さな汎用 helper です。
 | DB row や mapper を変える | `contexts/supportDesk/domain/*` |
 | AI tool の input schema を変える | `contexts/supportDesk/ai/schemas.ts` |
 | AI tool の登録や description を変える | `contexts/supportDesk/ai/tools.ts` |
+| semantic search tool を変える | `contexts/supportDesk/ai/semanticSearchTools.ts` |
+| semantic search の zod schema を変える | `contexts/supportDesk/ai/semanticSearchSchemas.ts` |
+| embedding の具体実装を変える | `contexts/supportDesk/infrastructure/workersAiEmbeddingProvider.ts` |
+| Vectorize の保存・検索実装を変える | `contexts/supportDesk/infrastructure/vectorizeTicketSearchIndex.ts` |
+| search index の同期状態を変える | `contexts/supportDesk/infrastructure/sqliteSearchProjectionStore.ts` |
 | prompt を変える | `contexts/supportDesk/ai/prompts.ts` |
 | readonly / mutating tool policy を変える | `contexts/supportDesk/ai/toolPolicy.ts` |
 | Workers AI model を変える | `src/server/ai/model.ts` |
@@ -426,3 +431,59 @@ TicketAgent
 ```
 
 ただし、最初から Agent を増やしすぎると一覧取得や横断集計が複雑になる。まずは今のように「1 main Agent + bounded context 内部分割」を基本形にする。
+
+## Semantic Search
+
+semantic search は、チケット本文を embedding に変換して Vectorize に保存し、検索文も embedding に変換して近い vector を探す仕組みです。
+
+責務の分担:
+
+- `application/semanticSearchService.ts`: index / search / reindex のユースケースを組み立てる
+- `domain/searchDocument.ts`: チケットを検索対象 document と metadata に変換する
+- `infrastructure/workersAiEmbeddingProvider.ts`: Workers AI の `env.AI.run(...)` で embedding を作る
+- `infrastructure/vectorizeTicketSearchIndex.ts`: Vectorize の `upsert` / `query` / `deleteByIds` を実行する
+- `infrastructure/sqliteSearchProjectionStore.ts`: どの source がどの vectorId / contentHash で index 済みかを SQLite に保存する
+- `ai/semanticSearchTools.ts`: Agent tool として `semanticSearchTickets` / `reindexSearch` を公開する
+
+重要な境界:
+
+- Application 層は `env.AI.run(...)` や `env.SUPPORT_DESK_VECTORIZE.query(...)` を直接呼ばない
+- 具体的な Cloudflare binding 操作は infrastructure に閉じ込める
+- Vectorize は source of truth ではなく検索 index として扱う
+- チケット本体は Durable Object SQLite に残し、検索結果は `ticketId` で hydrate する
+- `reindexSearch` は embedding quota を消費するため approval 必須の mutating tool とする
+
+運用前提:
+
+- Vectorize index は事前に Cloudflare 側で作成しておく
+- 現在の embedding model は `@cf/baai/bge-base-en-v1.5`
+- 想定 dimensions は `768`
+- Vectorize index は `cosine` metric で作る
+
+作成コマンド例:
+
+```bash
+npx wrangler vectorize create support-desk-tickets --dimensions=768 --metric=cosine
+```
+
+検索の流れ:
+
+```txt
+semanticSearchTickets(query)
+  -> embeddingProvider.embed(query)
+  -> vectorIndex.query(vector)
+  -> ticketId で SQLite から ticket を取得
+  -> score 付きで Agent に返す
+```
+
+index の流れ:
+
+```txt
+reindexSearch()
+  -> ticket 一覧を取得
+  -> SearchDocument に変換
+  -> contentHash が同じなら skip
+  -> embeddingProvider.embed(document.text)
+  -> vectorIndex.upsert(...)
+  -> projectionStore.markIndexed(...)
+```
