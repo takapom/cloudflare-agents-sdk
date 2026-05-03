@@ -1,0 +1,33 @@
+{
+  "session_id": "6814CDBE-AF35-4BAA-BE3A-6668ADC3AC01",
+  "parent_session_id": null,
+  "state": "initialized",
+  "state_version": 1,
+  "started_at": "2026-05-02T00:36:52Z",
+  "updated_at": "2026-05-02T00:36:52Z",
+  "resume_token": "807C448A-DB6D-49C1-B260-3BBD5D631652",
+  "event_seq": 1,
+  "last_event_id": "event-000001",
+  "fork_count": 0,
+  "orchestration": {
+    "max_state_retries": 3,
+    "retry_backoff_seconds": 10
+  },
+  "cwd": "/Users/takagiyuuki/Downloads/practice cf agents",
+  "project_name": "practice cf agents",
+  "prompt_seq": 0,
+  "git": {
+    "branch": "master",
+    "uncommitted_changes": 0,
+    "last_commit": "3a05b2b"
+  },
+  "plans": {
+    "exists": false,
+    "last_modified": 0,
+    "wip_tasks": 0,
+    "todo_tasks": 0,
+    "pending_tasks": 0,
+    "completed_tasks": 0
+  },
+  "changes_this_session": []
+}

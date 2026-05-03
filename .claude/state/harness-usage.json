@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "updatedAt": "2026-05-02T00:36:52.709Z",
+  "skills": {},
+  "commands": {},
+  "agents": {},
+  "hooks": {
+    "session-init": {
+      "triggered": 1,
+      "blocked": 0,
+      "lastTriggered": "2026-05-02T00:36:52.709Z"
+    }
+  }
+}
