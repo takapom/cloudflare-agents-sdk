@@ -3,7 +3,6 @@ export function isSqliteContention(error: unknown) {
   return (
     message.includes("SQLITE_BUSY") ||
     message.includes("database is locked") ||
-    message.includes("SQLITE_READONLY") ||
-    message.includes("readonly database")
+    message.includes("Storage operation in progress")
   );
 }

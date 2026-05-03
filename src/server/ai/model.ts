@@ -1,6 +1,6 @@
 import type { LanguageModel } from "ai";
 import { createWorkersAI } from "workers-ai-provider";
-import type { Env } from "@/server/env";
+import type { Env } from "@/server/platform/env";
 
 const SUPPORT_DESK_MODEL = "@cf/moonshotai/kimi-k2.6";
 

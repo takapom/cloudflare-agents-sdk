@@ -1,9 +1,9 @@
-import type { EmbeddingProvider } from "@/server/contexts/supportDesk/application/search/semanticSearchService";
+import type { EmbeddingProvider } from "@/server/contexts/supportDesk/application/search/searchPorts";
 import {
   SUPPORT_DESK_EMBEDDING_DIMENSIONS,
   SUPPORT_DESK_EMBEDDING_MODEL
 } from "@/server/contexts/supportDesk/domain/search/searchDocument";
-import type { Env } from "@/server/env";
+import type { Env } from "@/server/platform/env";
 
 type WorkersAiEmbeddingOutput = {
   shape?: number[];

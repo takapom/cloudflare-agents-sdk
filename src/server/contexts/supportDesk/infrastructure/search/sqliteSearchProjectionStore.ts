@@ -1,5 +1,5 @@
-import type { SearchProjectionStore } from "@/server/contexts/supportDesk/application/search/semanticSearchService";
-import type { SqlQuery } from "@/server/contexts/supportDesk/infrastructure/ticket/sqliteTicketStore";
+import type { SearchProjectionStore } from "@/server/contexts/supportDesk/application/search/searchPorts";
+import type { SqlQuery } from "@/server/contexts/supportDesk/supportDeskSql";
 
 type SearchProjectionRow = {
   workspace_id: string;

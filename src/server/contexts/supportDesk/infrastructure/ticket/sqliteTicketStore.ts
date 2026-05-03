@@ -6,19 +6,14 @@ import type {
   TicketStatus,
   TicketStatusFilter
 } from "@/shared/contracts";
-import { nowIso } from "@/server/utils/time";
+import { nowIso } from "@/server/platform/time";
+import type { TicketStore } from "@/server/contexts/supportDesk/application/ticket/ticketStore";
 import { demoTickets } from "@/server/contexts/supportDesk/domain/ticket/demoTickets";
 import { toTicketView } from "@/server/contexts/supportDesk/domain/ticket/mappers";
 import type { AuditLogRow, CountRow, DraftRow, NoteRow, TicketRow } from "@/server/contexts/supportDesk/domain/ticket/rows";
+import type { SqlQuery } from "@/server/contexts/supportDesk/supportDeskSql";
 
-export type SqlQuery = <T = Record<string, unknown>>(
-  strings: TemplateStringsArray,
-  ...values: any[]
-) => T[];
-
-export type SupportDeskStore = ReturnType<typeof createSupportDeskStore>;
-
-export function createSupportDeskStore(sql: SqlQuery, workspaceName: string) {
+export function createSupportDeskStore(sql: SqlQuery, workspaceName: string): TicketStore {
   function initSchema() {
     sql`
       CREATE TABLE IF NOT EXISTS tickets (
@@ -130,7 +125,7 @@ export function createSupportDeskStore(sql: SqlQuery, workspaceName: string) {
     recordAuditLog("seedDemoData", "workspace", { reset: Boolean(options?.reset) }, createdAt);
 
     return {
-      ok: true,
+      ok: true as const,
       seeded: demoTickets.length,
       reset: Boolean(options?.reset)
     };

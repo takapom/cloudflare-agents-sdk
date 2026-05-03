@@ -1,7 +1,7 @@
 import { Think, type MessageConcurrency } from "@cloudflare/think";
 import type { LanguageModel } from "ai";
 import { getSupportDeskModel } from "@/server/ai/model";
-import type { Env } from "@/server/env";
+import type { Env } from "@/server/platform/env";
 import { replyDraftSystemPrompt } from "@/server/agents/replyDraft/prompts";
 
 export class ReplyDraftAgent extends Think<Env> {

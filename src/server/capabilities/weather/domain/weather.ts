@@ -1,0 +1,68 @@
+export type GetWeatherInput = {
+  city: string;
+  countryCode?: string;
+  timezone?: string;
+};
+
+export type WeatherResult =
+  | {
+      ok: true;
+      source: "open-meteo";
+      location: {
+        name: string;
+        country: string | null;
+        countryCode: string | null;
+        admin1: string | null;
+        latitude: number;
+        longitude: number;
+        timezone: string;
+      };
+      current: {
+        time: string;
+        condition: string;
+        weatherCode: number;
+        temperature: number;
+        apparentTemperature: number;
+        humidity: number;
+        precipitation: number;
+        windSpeed: number;
+        units: Record<string, string>;
+      };
+    }
+  | {
+      ok: false;
+      source: "open-meteo";
+      error: string;
+      city?: string;
+      countryCode?: string | null;
+    };
+
+export type WeatherClient = (input: GetWeatherInput) => Promise<WeatherResult>;
+
+export function weatherCodeLabel(code: number) {
+  const labels: Record<number, string> = {
+    0: "快晴",
+    1: "ほぼ晴れ",
+    2: "一部曇り",
+    3: "曇り",
+    45: "霧",
+    48: "霧氷",
+    51: "弱い霧雨",
+    53: "霧雨",
+    55: "強い霧雨",
+    61: "弱い雨",
+    63: "雨",
+    65: "強い雨",
+    71: "弱い雪",
+    73: "雪",
+    75: "強い雪",
+    80: "弱いにわか雨",
+    81: "にわか雨",
+    82: "強いにわか雨",
+    95: "雷雨",
+    96: "ひょうを伴う雷雨",
+    99: "強いひょうを伴う雷雨"
+  };
+
+  return labels[code] ?? `天気コード ${code}`;
+}

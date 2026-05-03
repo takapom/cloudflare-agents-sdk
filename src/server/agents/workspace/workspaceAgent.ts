@@ -18,27 +18,19 @@ import type {
   TicketStatusFilter
 } from "@/shared/contracts";
 import { getSupportDeskModel } from "@/server/ai/model";
-import {
-  normalizeAnalyticsInput,
-  runDynamicWorkerTicketAnalytics as runDynamicWorkerTicketAnalyticsInSandbox
-} from "@/server/analytics/dynamicWorkerTicketAnalytics";
-import type { Env } from "@/server/env";
-import { getCurrentWeather } from "@/server/integrations/openMeteo/client";
-import { isSqliteContention } from "@/server/utils/errors";
-import { nowIso } from "@/server/utils/time";
+import type { Env } from "@/server/platform/env";
+import { getWeather } from "@/server/capabilities/weather/application/getWeather";
+import type { GetWeatherInput } from "@/server/capabilities/weather/domain/weather";
+import { isSqliteContention } from "@/server/platform/errors";
+import { nowIso } from "@/server/platform/time";
 import { structuredTenantReportSchema } from "@/server/agents/workspace/tools/ticketSchemas";
 import { supportDeskSystemPrompt } from "@/server/agents/workspace/prompts";
 import { readonlyToolNames, isMutatingTool } from "@/server/agents/workspace/toolPolicy";
-import { createSupportDeskTools } from "@/server/agents/workspace/tools/ticketTools";
+import { createWorkspaceTools } from "@/server/agents/workspace/tools";
 import {
-  createSupportDeskStore,
+  createSupportDeskContext,
   type SqlQuery
-} from "@/server/contexts/supportDesk/infrastructure/ticket/sqliteTicketStore";
-import { createTicketApplication } from "@/server/contexts/supportDesk/application/ticket/ticketApplication";
-import { createSemanticSearchService } from "@/server/contexts/supportDesk/application/search/semanticSearchService";
-import { createSqliteSearchProjectionStore } from "@/server/contexts/supportDesk/infrastructure/search/sqliteSearchProjectionStore";
-import { createVectorizeTicketSearchIndex } from "@/server/contexts/supportDesk/infrastructure/search/vectorizeTicketSearchIndex";
-import { createWorkersAiEmbeddingProvider } from "@/server/contexts/supportDesk/infrastructure/search/workersAiEmbeddingProvider";
+} from "@/server/contexts/supportDesk/supportDeskContext";
 import { replyDraftUserPrompt } from "@/server/agents/replyDraft/prompts";
 import { ReplyDraftAgent } from "@/server/agents/replyDraft/replyDraftAgent";
 
@@ -65,24 +57,16 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
     ) => this.sql<T>(strings, ...values);
   }
 
-  private getApplication() {
-    return createTicketApplication(
-      createSupportDeskStore(this.getSqlQuery(), this.name)
-    );
-  }
-
-  private getSemanticSearchService() {
-    return createSemanticSearchService({
-      workspaceId: this.name,
-      ticketRepository: this.getApplication(),
-      projectionStore: createSqliteSearchProjectionStore(this.getSqlQuery()),
-      embeddingProvider: createWorkersAiEmbeddingProvider(this.env),
-      searchIndex: createVectorizeTicketSearchIndex(this.env)
+  private getSupportDesk() {
+    return createSupportDeskContext({
+      env: this.env,
+      sql: this.getSqlQuery(),
+      workspaceId: this.name
     });
   }
 
   async onStart() {
-    const supportDesk = this.getApplication();
+    const supportDesk = this.getSupportDesk().tickets;
     supportDesk.initSchema();
 
     if (supportDesk.getTicketCount() === 0) {
@@ -125,7 +109,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   }
 
   getTools(): ToolSet {
-    return createSupportDeskTools(this.env, {
+    return createWorkspaceTools(this.env, {
       listTickets: (status, priority, limit) => this.listTickets(status, priority, limit),
       getTicket: (ticketId) => this.getTicket(ticketId),
       searchTickets: (query, limit) => this.searchTickets(query, limit),
@@ -216,12 +200,12 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   }
 
   initSchema() {
-    this.getApplication().initSchema();
+    this.getSupportDesk().tickets.initSchema();
   }
 
   @callable()
   async seedDemoData(options?: { reset?: boolean }) {
-    const result = this.getApplication().seedDemoData(options);
+    const result = this.getSupportDesk().tickets.seedDemoData(options);
     this.refreshMetrics();
     return result;
   }
@@ -231,7 +215,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
   }
 
   refreshMetrics() {
-    const metrics = this.getApplication().getMetricCounts();
+    const metrics = this.getSupportDesk().tickets.getMetricCounts();
 
     try {
       this.setState({
@@ -262,7 +246,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
 
   @callable()
   getTenantOverview() {
-    return this.getApplication().getTenantOverview(this.state);
+    return this.getSupportDesk().tickets.getTenantOverview(this.state);
   }
 
   @callable()
@@ -271,25 +255,21 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
     priority: TicketPriorityFilter = "all",
     limit = 10
   ) {
-    return this.getApplication().listTickets(status, priority, limit);
+    return this.getSupportDesk().tickets.listTickets(status, priority, limit);
   }
 
   @callable()
   getTicket(ticketId: string) {
-    return this.getApplication().getTicket(ticketId);
+    return this.getSupportDesk().tickets.getTicket(ticketId);
   }
 
   @callable()
   searchTickets(query: string, limit = 10) {
-    return this.getApplication().searchTickets(query, limit);
+    return this.getSupportDesk().tickets.searchTickets(query, limit);
   }
 
-  async getWeather(input: {
-    city: string;
-    countryCode?: string;
-    timezone?: string;
-  }) {
-    return getCurrentWeather(input);
+  async getWeather(input: GetWeatherInput) {
+    return getWeather(input);
   }
 
   @callable()
@@ -298,17 +278,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
     priority?: TicketPriorityFilter;
     limit?: number;
   }) {
-    const normalized = normalizeAnalyticsInput(input);
-    const tickets = this.listTickets(
-      normalized.status,
-      normalized.priority,
-      normalized.limit
-    );
-
-    return runDynamicWorkerTicketAnalyticsInSandbox({
-      env: this.env,
-      tickets
-    });
+    return this.getSupportDesk().analytics.runTicketAnalytics(input);
   }
 
   @callable()
@@ -318,7 +288,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
     priority?: TicketPriorityFilter;
     limit?: number;
   }) {
-    return this.getSemanticSearchService().searchSimilarTickets(input);
+    return this.getSupportDesk().search.searchSimilarTickets(input);
   }
 
   @callable()
@@ -327,19 +297,19 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
     priority?: TicketPriorityFilter;
     limit?: number;
   }) {
-    return this.getSemanticSearchService().reindexTickets(input);
+    return this.getSupportDesk().search.reindexTickets(input);
   }
 
   @callable()
   async addInternalNote(ticketId: string, body: string, createdBy = "human") {
-    const result = this.getApplication().addInternalNote(ticketId, body, createdBy);
+    const result = this.getSupportDesk().tickets.addInternalNote(ticketId, body, createdBy);
     if (result.ok) this.refreshMetrics();
     return result;
   }
 
   @callable()
   async changeTicketStatus(ticketId: string, status: TicketStatus, reason: string) {
-    const result = this.getApplication().changeTicketStatus(ticketId, status, reason);
+    const result = this.getSupportDesk().tickets.changeTicketStatus(ticketId, status, reason);
     if (result.ok) this.refreshMetrics();
     return result;
   }
@@ -381,7 +351,7 @@ export class SupportDeskAgent extends Think<Env, SupportDeskState> {
               tone: z.string().default(tone)
             }),
             execute: async ({ subject, body, tone: savedTone }) => {
-              const result = this.getApplication().saveDraft(
+              const result = this.getSupportDesk().tickets.saveDraft(
                 ticketId,
                 subject,
                 body,

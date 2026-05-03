@@ -5,8 +5,8 @@ import type {
 import type {
   TicketSearchIndex,
   TicketSearchMatch
-} from "@/server/contexts/supportDesk/application/search/semanticSearchService";
-import type { Env } from "@/server/env";
+} from "@/server/contexts/supportDesk/application/search/searchPorts";
+import type { Env } from "@/server/platform/env";
 
 function normalizeMetadata(metadata: unknown) {
   if (!metadata || typeof metadata !== "object" || Array.isArray(metadata)) return {};

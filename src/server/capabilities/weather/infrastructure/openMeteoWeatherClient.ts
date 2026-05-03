@@ -1,4 +1,8 @@
-import { weatherCodeLabel } from "@/server/integrations/openMeteo/weatherCodes";
+import {
+  type GetWeatherInput,
+  type WeatherResult,
+  weatherCodeLabel
+} from "@/server/capabilities/weather/domain/weather";
 
 type GeocodingResult = {
   id: number;
@@ -11,11 +15,9 @@ type GeocodingResult = {
   timezone?: string;
 };
 
-export async function getCurrentWeather(input: {
-  city: string;
-  countryCode?: string;
-  timezone?: string;
-}) {
+export async function getCurrentWeatherFromOpenMeteo(
+  input: GetWeatherInput
+): Promise<WeatherResult> {
   const city = input.city.trim();
   const timezone = input.timezone || "Asia/Tokyo";
   const countryCode = input.countryCode?.toUpperCase();
