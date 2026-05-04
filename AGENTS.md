@@ -18,18 +18,18 @@
 
 業務判断は context に置き、外部 API や Cloudflare binding の具体操作は capability または infrastructure に閉じ込めます。Agent は prompt、state、tool 公開、approval policy、orchestration を担当し、できるだけ薄く保ちます。
 
-依存方向は上位から下位へ流します。
+依存方向は bounded context の内側から外側の実装詳細へ流します。Agent はトップレベルの特別な層ではなく、各 bounded context が持つ AI interface として扱います。
 
 ```txt
-agents
-  -> contexts
-  -> capabilities
-  -> workflows / projections / platform
+contexts/<bc>/agents
+  -> contexts/<bc>/application
+  -> contexts/<bc>/domain
+  -> capabilities / workflows / projections / platform
 ```
 
 避けること:
 
-- `contexts` や `capabilities` から `agents` に依存する
+- `contexts/*/application`、`contexts/*/domain`、`capabilities` から `contexts/*/agents` に依存する
 - Agent に raw SQL や外部 API の `fetch()` を直接置く
 - Tool 定義に業務判断の本体を埋め込む
 - `domain` から `infrastructure` に依存する
@@ -37,9 +37,10 @@ agents
 
 配置の基本:
 
-- `agents/*`: Cloudflare Agents SDK の actor、state、prompt、tool、approval policy
-- `agents/*/tools/*`: AI に公開する tool interface
 - `contexts/*`: 業務 bounded context、domain、application use case、ports、infrastructure
+- `contexts/*/agents/*`: その bounded context の AI interface、Cloudflare Agents SDK の actor、state、prompt、tool、approval policy
+- `contexts/*/agents/*/tools/*`: AI に公開する tool interface
+- `contexts/agentManagement/*`: Agent の登録、設定、権限、実行履歴、利用制限を扱う bounded context
 - `capabilities/*`: 天気、Slack、Email など、業務非依存の外部能力 adapter
 - `workflows/*`: Queue、Cron、retry など、1 turn に閉じない処理
 - `projections/*`: 横断集計や読み取り最適化 read model
