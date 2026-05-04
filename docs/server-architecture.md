@@ -2,7 +2,7 @@
 
 このアプリは Cloudflare Agents SDK を使うため、Agent は単なる controller ではなく、Durable Object として状態・RPC・ツール実行・ライフサイクルを持つ境界です。
 
-基本方針は、Agent を「SDK との接続点」として薄く保ち、業務ルール、永続化、AI tool、業務外 capability を境界ごとに分けることです。
+基本方針は、Agent を「SDK との接続点」として薄く保ち、業務ルール、永続化、AI tool、業務外 capability を境界ごとに分けることです。Agent はトップレベルで特別扱いせず、その Agent が扱う業務を所有する bounded context の配下に置きます。
 
 ## 全体構成
 
@@ -18,19 +18,19 @@ src/
       env.ts
       errors.ts
       time.ts
-    agents/
-      workspace/
-        workspaceAgent.ts
-        tools/
-        prompts.ts
-        toolPolicy.ts
-      replyDraft/
-        replyDraftAgent.ts
-        prompts.ts
     ai/
     contexts/
       supportDesk/
         supportDeskContext.ts
+        agents/
+          workspace/
+            workspaceAgent.ts
+            tools/
+            prompts.ts
+            toolPolicy.ts
+          replyDraft/
+            replyDraftAgent.ts
+            prompts.ts
         application/
           analytics/
           ticket/
@@ -42,6 +42,23 @@ src/
           analytics/
           ticket/
           search/
+      knowledgeBase/
+        knowledgeBaseContext.ts
+        agents/
+          knowledgeCurator/
+            knowledgeCuratorAgent.ts
+            tools/
+            prompts.ts
+            toolPolicy.ts
+        domain/
+        application/
+        fixtures/
+      agentManagement/
+        agentManagementContext.ts
+        README.md
+        domain/
+        application/
+        infrastructure/
     capabilities/
       weather/
         application/
@@ -144,7 +161,7 @@ Cloudflare runtime の共通基盤です。
 - 業務ルール
 - SQL
 
-## `src/server/agents/*`
+## `src/server/contexts/supportDesk/agents/*`
 
 Cloudflare Agents SDK との接続点です。
 
@@ -180,22 +197,22 @@ Cloudflare Agents SDK との接続点です。
 
 判断基準:
 
-- Cloudflare Agents SDK を外したときに不要になる処理は `agents/`
+- Cloudflare Agents SDK を外したときに不要になる処理は `contexts/<bc>/agents/`
 - SDK を外しても残る業務処理は `contexts/*/application` か `domain`
 - Agent が context を使う入口は `contexts/<context>/<context>Context.ts`
 - capability ごとに `workspace/`、`replyDraft/`、将来的には `search/`、`ticket/`、`analytics/` のように切る
 
 現状:
 
-- `agents/workspace/workspaceAgent.ts`: UI chat の入口。互換性のため exported class 名は `SupportDeskAgent` のまま。
-- `agents/workspace/tools/index.ts`: WorkspaceAgent が公開する tool set の合成地点。
-- `agents/workspace/tools/ticketTools.ts`: ticket の read / mutation tool。
-- `agents/workspace/tools/searchTools.ts`: semantic search tool。
-- `agents/workspace/tools/weatherTools.ts`: weather capability を WorkspaceAgent に公開する tool。
-- `agents/workspace/tools/analyticsTools.ts`: analytics tool。
-- `agents/workspace/tools/draftTools.ts`: ReplyDraftAgent への委譲 tool。
-- `agents/workspace/tools/codeModeTool.ts`: codemode tool。
-- `agents/replyDraft/replyDraftAgent.ts`: 返信案作成 sub-agent。
+- `contexts/supportDesk/agents/workspace/workspaceAgent.ts`: UI chat の入口。互換性のため exported class 名は `SupportDeskAgent` のまま。
+- `contexts/supportDesk/agents/workspace/tools/index.ts`: WorkspaceAgent が公開する tool set の合成地点。
+- `contexts/supportDesk/agents/workspace/tools/ticketTools.ts`: ticket の read / mutation tool。
+- `contexts/supportDesk/agents/workspace/tools/searchTools.ts`: semantic search tool。
+- `contexts/supportDesk/agents/workspace/tools/weatherTools.ts`: weather capability を WorkspaceAgent に公開する tool。
+- `contexts/supportDesk/agents/workspace/tools/analyticsTools.ts`: analytics tool。
+- `contexts/supportDesk/agents/workspace/tools/draftTools.ts`: ReplyDraftAgent への委譲 tool。
+- `contexts/supportDesk/agents/workspace/tools/codeModeTool.ts`: codemode tool。
+- `contexts/supportDesk/agents/replyDraft/replyDraftAgent.ts`: 返信案作成 sub-agent。
 
 ## `src/server/contexts/supportDesk/domain/*`
 
@@ -396,13 +413,13 @@ server 全体で共有する AI 基盤です。
 | Durable Object export / shared export を変える | `src/server.ts` |
 | UI と server の共有型を変える | `src/shared/contracts.ts` |
 | Cloudflare binding 型や runtime helper を変える | `src/server/platform/*` |
-| Workspace Agent lifecycle / callable / tool orchestration を変える | `src/server/agents/workspace/workspaceAgent.ts` |
-| Workspace Agent の tool を変える | `src/server/agents/workspace/tools/*` |
-| weather capability を Agent tool としてどう公開するかを変える | `src/server/agents/workspace/tools/weatherTools.ts` |
-| Workspace Agent の prompt を変える | `src/server/agents/workspace/prompts.ts` |
-| Workspace Agent の readonly / mutating policy を変える | `src/server/agents/workspace/toolPolicy.ts` |
-| 返信案 sub-agent を変える | `src/server/agents/replyDraft/replyDraftAgent.ts` |
-| 返信案 sub-agent の prompt を変える | `src/server/agents/replyDraft/prompts.ts` |
+| Workspace Agent lifecycle / callable / tool orchestration を変える | `src/server/contexts/supportDesk/agents/workspace/workspaceAgent.ts` |
+| Workspace Agent の tool を変える | `src/server/contexts/supportDesk/agents/workspace/tools/*` |
+| weather capability を Agent tool としてどう公開するかを変える | `src/server/contexts/supportDesk/agents/workspace/tools/weatherTools.ts` |
+| Workspace Agent の prompt を変える | `src/server/contexts/supportDesk/agents/workspace/prompts.ts` |
+| Workspace Agent の readonly / mutating policy を変える | `src/server/contexts/supportDesk/agents/workspace/toolPolicy.ts` |
+| 返信案 sub-agent を変える | `src/server/contexts/supportDesk/agents/replyDraft/replyDraftAgent.ts` |
+| 返信案 sub-agent の prompt を変える | `src/server/contexts/supportDesk/agents/replyDraft/prompts.ts` |
 | チケット業務のユースケースを変える | `contexts/supportDesk/application/ticket/ticketApplication.ts` |
 | ticket application port を変える | `contexts/supportDesk/application/ticket/ticketStore.ts` |
 | ticket SQLite の schema / query を変える | `contexts/supportDesk/infrastructure/ticket/sqliteTicketStore.ts` |
@@ -427,10 +444,10 @@ server 全体で共有する AI 基盤です。
 ```txt
 server.ts
   -> entrypoints
-  -> agents
+  -> contexts/supportDesk/agents
 entrypoints
-  -> agents
-agents
+  -> contexts/supportDesk/agents
+contexts/*/agents
   -> contexts/*/<context>Context
   -> contexts/*/application
   -> capabilities/*/application
@@ -447,16 +464,16 @@ shared/contracts
 
 避ける依存:
 
-- `domain` から `agents` へ依存する
+- `domain` から `contexts/*/agents` へ依存する
 - `infrastructure` から React / client へ依存する
 - `shared` から server-only module へ依存する
 - `server.ts` に bounded context の詳細を戻す
 - `contexts/supportDesk` に Support Desk 業務ではない capability を混ぜる
-- `agents` から context infrastructure を直接組み立てる
+- `contexts/*/agents` から context infrastructure を直接組み立てる
 
 ## 今後の分割目安
 
-現時点では `agents/workspace/workspaceAgent.ts` の `SupportDeskAgent` ひとつを UI chat の入口にし、内部の bounded context は capability 別に分けている。
+現時点では `contexts/supportDesk/agents/workspace/workspaceAgent.ts` の `SupportDeskAgent` ひとつを UI chat の入口にし、内部の bounded context は capability 別に分けている。
 
 次の兆候が出たら Agent 分割を検討する。
 
@@ -490,7 +507,7 @@ semantic search は、チケット本文を embedding に変換して Vectorize 
 - `infrastructure/search/workersAiEmbeddingProvider.ts`: Workers AI の `env.AI.run(...)` で embedding を作る
 - `infrastructure/search/vectorizeTicketSearchIndex.ts`: Vectorize の `upsert` / `query` / `deleteByIds` を実行する
 - `infrastructure/search/sqliteSearchProjectionStore.ts`: どの source がどの vectorId / contentHash で index 済みかを SQLite に保存する
-- `agents/workspace/tools/searchTools.ts`: Agent tool として `semanticSearchTickets` / `reindexSearch` を公開する
+- `contexts/supportDesk/agents/workspace/tools/searchTools.ts`: Agent tool として `semanticSearchTickets` / `reindexSearch` を公開する
 
 重要な境界:
 

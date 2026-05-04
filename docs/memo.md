@@ -2,8 +2,8 @@
 
   Client
     -> Worker entrypoint
-      -> Agents
-        -> Contexts / Capabilities / Analytics
+      -> Bounded Context Agent interface
+        -> Context application / Capabilities / Analytics
           -> Infrastructure
             -> Cloudflare bindings / external APIs
 
@@ -17,7 +17,7 @@
     |
     | routeAgentRequest()
     v
-  agents/workspace/WorkspaceAgent
+  contexts/supportDesk/agents/workspace/WorkspaceAgent
     |
     | exposes tools / callable methods
     |------------------------------|
@@ -46,7 +46,7 @@
   - prompt
   - 外部 API 呼び出し
 
-  src/server/agents/*
+  src/server/contexts/supportDesk/agents/*
 
   Cloudflare Agents SDK との接続層です。
   ここは「context / capability を Agent にどう見せるか」を決めます。
@@ -64,7 +64,7 @@
 
   主な構成:
 
-  agents/
+  contexts/supportDesk/agents/
     workspace/
       workspaceAgent.ts
       prompts.ts
@@ -161,7 +161,7 @@
   - ticket / customer / SLA / priority 判断
   - Support Desk の状態更新
 
-  Weather を Agent tool としてどう公開するかは agents/workspace/tools/
+  Weather を Agent tool としてどう公開するかは contexts/supportDesk/agents/workspace/tools/
   weatherTools.ts の責務です。
 
   contexts/supportDesk/application/analytics/*
@@ -227,7 +227,7 @@
   client
     -> shared/contracts
     -> server.ts
-      -> agents
+      -> contexts/supportDesk/agents
         -> contexts/supportDesk/application
         -> capabilities/weather/application
         -> analytics
@@ -247,17 +247,17 @@
 
   避けるべき依存はこれです。
 
-  contexts/supportDesk -> agents
-  capabilities/weather -> agents
+  contexts/supportDesk/application -> contexts/supportDesk/agents
+  capabilities/weather -> contexts/supportDesk/agents
   domain -> infrastructure
   shared -> server-only
-  agents -> raw SQL / external fetch
+  contexts/supportDesk/agents -> raw SQL / external fetch
 
   要するに、今の設計思想はこれです。
 
   contexts/supportDesk = 業務本体
   capabilities/weather = 業務外の外部能力本体
-  agents/*             = それらを Agent にどう見せるか
+  contexts/supportDesk/agents/* = それらを Agent にどう見せるか
   infrastructure       = Cloudflare / DB / 外部 API の具体実装
   shared               = client-server contract
 

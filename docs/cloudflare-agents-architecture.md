@@ -6,6 +6,8 @@ Cloudflare Agents では Agent や Tool を簡単に増やせますが、最初�
 
 Agent は業務そのものではなく、context や capability を AI にどう見せるかを決める actor です。Tool はその公開口です。業務判断は context に置き、外部 API との接続は capability や infrastructure に閉じ込め、Agent はそれらを組み合わせる入口として薄く保ちます。
 
+このリポジトリでは Agent をトップレベルの特別なモジュールにせず、業務を所有する bounded context の配下に置きます。Agent 自体の登録・設定・権限・実行履歴のように「Agent を管理すること」が業務になったものだけを `agentManagement` context として独立させます。
+
 ## 基本思想
 
 ```txt
@@ -47,7 +49,7 @@ src/server.ts
   |
   | routeAgentRequest()
   v
-agents/workspace/WorkspaceAgent
+contexts/supportDesk/agents/workspace/WorkspaceAgent
   |
   | exposes tools / callable methods
   |------------------------------|
@@ -64,7 +66,7 @@ SQLite / Workers AI / Vectorize  Open-Meteo API
 src/server.ts
   -> Worker entrypoint
 
-agents/workspace/WorkspaceAgent
+contexts/supportDesk/agents/workspace/WorkspaceAgent
   -> Main Agent / actor
 
 contexts/supportDesk
@@ -80,12 +82,12 @@ Open-Meteo API
   -> External API used by capability infrastructure
 ```
 
-依存方向は上から下です。`contexts` や `capabilities` が `agents` を知る形にしません。
+依存方向は bounded context の境界を主語にします。`application`、`domain`、`capabilities` が Agent SDK layer を知る形にしません。
 
 ```txt
-agents
-  -> contexts/*/<context>Context
-  -> contexts/*/application
+contexts/<bc>/agents
+  -> contexts/<bc>/<context>Context
+  -> contexts/<bc>/application
   -> capabilities/*/application
   -> workflows
 
@@ -107,12 +109,12 @@ workflows
 
 避ける依存:
 
-- `contexts/*` から `agents/*` へ依存する
-- `capabilities/*` から `agents/*` へ依存する
+- `contexts/*/application` や `contexts/*/domain` から `contexts/*/agents` へ依存する
+- `capabilities/*` から `contexts/*/agents` へ依存する
 - `capabilities/*` から `contexts/*` へ依存する
 - `domain` から `infrastructure` へ依存する
 - `shared` から server-only module へ依存する
-- `agents/*` に raw SQL、外部 API の `fetch()`、Cloudflare binding の具体操作を置く
+- `contexts/*/agents/*` に raw SQL、外部 API の `fetch()`、Cloudflare binding の具体操作を置く
 
 ## 汎用ディレクトリ
 
@@ -128,30 +130,34 @@ src/server/
     errors.ts
     time.ts
 
-  agents/
-    workspace/
-      workspaceAgent.ts
-      state.ts
-      prompts.ts
-      policies.ts
-      tools/
-        index.ts
-        <feature>Tools.ts
-
-    <specialistAgent>/
-      <specialistAgent>.ts
-      prompts.ts
-      policies.ts
-      tools/
-
   contexts/
     <businessContext>/
       <businessContext>Context.ts
+      agents/
+        <agentName>/
+          <agentName>Agent.ts
+          state.ts
+          prompts.ts
+          policies.ts
+          tools/
+            index.ts
+            <feature>Tools.ts
+      domain/
+      application/
+      ports/
+      infrastructure/
       <feature>/
         domain/
         application/
         ports/
         infrastructure/
+
+    agentManagement/
+      domain/
+      application/
+      ports/
+      infrastructure/
+      presentation/
 
   capabilities/
     <externalCapability>/
@@ -214,9 +220,9 @@ Cloudflare Workers 実行環境の共通基盤です。
 
 Cloudflare binding を「定義」するのは `platform` でよいですが、binding を「業務目的で使う」のは context / capability の infrastructure です。
 
-### `agents/`
+### `contexts/<context>/agents/`
 
-Cloudflare Agents SDK の actor layer です。
+Cloudflare Agents SDK の actor layer です。Agent は業務 context の AI interface なので、その Agent が扱う業務 language を所有する bounded context の配下に置きます。
 
 責務:
 
@@ -240,7 +246,9 @@ Cloudflare Agents SDK の actor layer です。
 
 Agent は「業務を実装する場所」ではなく「業務や外部能力を AI にどう見せるか」を決める場所です。
 
-### `agents/<agent>/tools/`
+`agentManagement` は例外的なトップレベルの Agent 置き場ではありません。Agent の登録、設定、権限、実行履歴、利用制限などを管理する bounded context です。
+
+### `contexts/<context>/agents/<agent>/tools/`
 
 Agent の外向き interface です。
 
@@ -259,7 +267,7 @@ Tool は capability 側ではなく、その Tool を公開する Agent 側に�
 capabilities/slack/*
   Slack API を呼ぶ能力本体
 
-agents/workspace/tools/slackTools.ts
+contexts/supportDesk/agents/workspace/tools/slackTools.ts
   WorkspaceAgent が Slack をどう Tool として見せるか
 ```
 
@@ -314,7 +322,7 @@ urgent ticket を検知する
 `<businessContext>Context.ts` は context 内の composition root です。Agent はここを入口にし、application service と infrastructure adapter の組み立ては context 内に閉じ込めます。
 
 ```txt
-agents/workspace
+contexts/supportDesk/agents/workspace
   -> contexts/supportDesk/supportDeskContext.ts
     -> application
     -> infrastructure
@@ -448,7 +456,7 @@ capabilities/slack
 contexts/supportDesk/escalation
   urgent ticket をどの channel に通知するか判断する
 
-agents/workspace/tools/escalationTools.ts
+contexts/supportDesk/agents/workspace/tools/escalationTools.ts
   escalation use case を AI にどう見せるか決める
 ```
 
@@ -537,7 +545,7 @@ client / server 間で共有する serializable contract です。
 
 4. AI に使わせる必要があるなら Agent tool を作る
    |
-   |-- agents/<agent>/tools/<feature>Tools.ts
+   |-- contexts/<context>/agents/<agent>/tools/<feature>Tools.ts
    |-- inputSchema / description / approval policy
 
 5. 長い処理なら workflow に逃がす
@@ -669,7 +677,7 @@ Tenant Durable Object
 Agent 分割は最後寄りでよいです。状態、権限、承認、スケジュール、Tool 集合が独立してから切ります。
 
 ```txt
-agents/
+contexts/supportDesk/agents/
   workspace/
     WorkspaceAgent
   search/
@@ -694,10 +702,10 @@ agents/
 
 ```txt
 Cloudflare Agents SDK hook / state / prompt / tool / policy
-  -> agents/*
+  -> contexts/<context>/agents/*
 
 AI にどう見せるか
-  -> agents/<agent>/tools/*
+  -> contexts/<context>/agents/<agent>/tools/*
 
 業務判断
   -> contexts/<context>/*
