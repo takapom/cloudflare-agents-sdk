@@ -1,4 +1,4 @@
-import type { SupportDeskAgent } from "@/server/agents/workspace/workspaceAgent";
+import type { SupportDeskAgent } from "@/server/contexts/supportDesk/agents/workspace/workspaceAgent";
 
 export type Env = {
   AI: Ai;

@@ -1,8 +1,9 @@
-import { ReplyDraftAgent } from "@/server/agents/replyDraft/replyDraftAgent";
-import { SupportDeskAgent } from "@/server/agents/workspace/workspaceAgent";
+import { ReplyDraftAgent } from "@/server/contexts/supportDesk/agents/replyDraft/replyDraftAgent";
+import { SupportDeskAgent } from "@/server/contexts/supportDesk/agents/workspace/workspaceAgent";
+import { KnowledgeCuratorAgent } from "@/server/contexts/knowledgeBase/agents/knowledgeCurator/knowledgeCuratorAgent";
 import worker from "@/server/entrypoints/worker";
 
-export { SupportDeskAgent, ReplyDraftAgent };
+export { SupportDeskAgent, ReplyDraftAgent, KnowledgeCuratorAgent };
 export type {
   DeskMode,
   SupportDeskState,
